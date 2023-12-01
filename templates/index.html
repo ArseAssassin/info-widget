@@ -135,7 +135,6 @@
     let calFormat = Intl.DateTimeFormat(undefined, { weekday: 'long', hour: 'numeric' })
     let getTime = (it) => calFormat.format(new Date())
     let currentTime = getTime()
-    console.log(currentTime)
     setInterval(() => {
       if (currentTime !== getTime()) {
         document.location.reload()
