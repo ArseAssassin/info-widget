@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>widgets</title>
+</head>
+<body>
+  <center>
+    <h1>
+
+      🌡️ <span id='minTemp'>0</span>° - <span id='maxTemp'>15</span>°
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      🌅 <span id='sunrise'>06:33</span> - 🌙 <span id='sunset'>18:33
+    </span>
+    </h1>
+  </center>
+  <div>
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ramda/0.29.1/ramda.min.js"></script>
+  <script type="text/javascript">
+    let dateFormat = Intl.DateTimeFormat(undefined, { hour: 'numeric', hour12: false, weekday: 'long', minute: 'numeric' })
+    let chartTimeFormat = Intl.DateTimeFormat(undefined, { hour: 'numeric', hour12: false, weekday: 'short'})
+    let timeFormat = Intl.DateTimeFormat(undefined, { hour: 'numeric', hour12: false, minute: 'numeric'})
+    let normalizePrice = (it) => it
+    let toHours = (it) => normalizePrice(it).toString().padStart(2, '0')
+    let formatChartTime = (d) => {
+      let date = new Date(d)
+      date.setMinutes(0)
+      return ((date.getHours() === 0) ? dateFormat : chartTimeFormat).format(date)
+    }
+    let refresh = async () => {
+      let doc = {{ prices|tojson }}
+      doc = doc.prices
+      let startDate = new Date()
+      startDate.setMinutes(-1)
+      startDate.setSeconds(0)
+      startDate.setHours(0)
+
+      doc = R.reverse(doc).filter(it => new Date(it.startDate) >= startDate)
+
+      Chart.defaults.color = '#ffffff'
+
+      let maxValue = Math.max(Math.max(...doc.map(R.prop('price'))), 30)
+
+      let drawChart = () => {
+        const ctx = document.getElementById('myChart');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: doc.map((it) => formatChartTime(new Date(it.startDate))),
+            datasets: [{
+              label: 'price in cents (c/kWh)',
+              data: doc.map((it) => it.price),
+              borderColor: '#ffff00',
+              backgroundColor: '#ffff00',
+            }, {
+              label: '',
+              data: R.repeat(30, doc.length),
+              borderWidth: 1,
+              borderColor: '#ff00ff',
+              backgroundColor: '#ff00ff',
+              pointRadius: 0
+            }, {
+              label: '',
+              data: R.repeat(5, doc.length),
+              borderWidth: 1,
+              borderColor: '#00ffff',
+              backgroundColor: '#00ffff',
+              pointRadius: 0
+            }, {
+              label: '',
+              type: 'bar',
+              borderColor: '#00ff00',
+              backgroundColor: '#00ff00',
+              data:
+                doc.filter(it => new Date(it.startDate).getHours() == 0)
+                .map((it) => ({
+                  x: formatChartTime(new Date(it.startDate)),
+                  y: maxValue
+                })),
+              maxBarThickness: 1
+            }, {
+              label: '',
+              type: 'bar',
+              borderColor: '#00ffff',
+              backgroundColor: '#00ffff',
+              data: [{x: formatChartTime(new Date()), y: maxValue}],
+              maxBarThickness: 1
+            },
+            ].concat(R.range(0, maxValue/5).map((it) => ({
+              label: '',
+              data: R.repeat(it*5, doc.length),
+              borderWidth: 1,
+              borderColor: '#666666',
+              pointRadius: 0
+            })))
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (it, index, ticks) => it + 'c/€'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+          },
+          lineAtIndex: [10]
+        });
+      }
+      drawChart()
+
+      let weather = await fetch('https://api.openweathermap.org/data/2.5/weather?lat=60.25653&lon=24.2988311&appid=2af2b92cc5092cf4ec9bf2c3da92d8b1&units=metric')
+
+      weather = await weather.json()
+
+      document.getElementById('sunrise').innerHTML = timeFormat.format(new Date(weather.sys.sunrise*1000))
+      document.getElementById('sunset').innerHTML = timeFormat.format(new Date(weather.sys.sunset*1000))
+      document.getElementById('minTemp').innerHTML = Math.floor(weather.main.temp_min)
+      document.getElementById('maxTemp').innerHTML = Math.ceil(weather.main.temp_max)
+
+    }
+    refresh()
+
+    let calFormat = Intl.DateTimeFormat(undefined, { weekday: 'long', hour: 'numeric' })
+    let getTime = (it) => calFormat.format(new Date())
+    let currentTime = getTime()
+    console.log(currentTime)
+    setInterval(() => {
+      if (currentTime !== getTime()) {
+        document.location.reload()
+      }
+    }, 10000)
+  </script>
+
+  <style type="text/css">
+    canvas {
+    }
+
+    body {
+      background-color: #000;
+    }
+
+    html {
+      color: #bbb;
+      font-family: sans-serif;
+    }
+  </style>
+</body>
+</html>
