@@ -5,7 +5,7 @@ from flask import Flask, render_template
 app = Flask('widget')
 
 @app.route('/')
-def hello_world():
+def index():
   prices = requests.get('https://api.porssisahko.net/v1/latest-prices.json').json()
   return render_template('index.html', prices=prices)
 
